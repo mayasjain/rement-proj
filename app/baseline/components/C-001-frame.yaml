@@ -1,0 +1,9 @@
+schema_version: 1
+id: C-001-frame
+name: Crusher frame
+type: frame
+specifications: {}
+geometry:
+  model_key: frame
+  local_position_m: [0, 0.3, 0]
+  dimensions_m: [1.8, 0.6, 1.6]

@@ -1,0 +1,14 @@
+schema_version: 1
+id: F-001
+name: Feed hopper
+type: hopper
+specifications:
+  max_solids_throughput_tph: 15
+  rated_power_kw: 2
+ports:
+  - {id: outlet, direction: output, material: mixed_aggregate}
+geometry:
+  model_key: hopper
+  position_m: [0, 0, 0]
+  rotation_deg: [0, 0, 0]
+  dimensions_m: [2, 2, 2]

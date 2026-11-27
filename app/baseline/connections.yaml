@@ -1,0 +1,25 @@
+connections:
+  - id: stream-01
+    from: {equipment_id: F-001, port_id: outlet}
+    to: {equipment_id: C-001, port_id: inlet}
+    material: mixed_aggregate
+  - id: stream-02
+    from: {equipment_id: C-001, port_id: outlet}
+    to: {equipment_id: S-001, port_id: inlet}
+    material: crushed_aggregate
+  - id: stream-03
+    from: {equipment_id: S-001, port_id: fine}
+    to: {equipment_id: W-001, port_id: inlet}
+    material: fine_aggregate
+  - id: stream-04
+    from: {equipment_id: S-001, port_id: coarse}
+    to: {equipment_id: G-001, port_id: inlet}
+    material: coarse_aggregate
+  - id: stream-05
+    from: {equipment_id: W-001, port_id: outlet}
+    to: {equipment_id: A-001, port_id: inlet}
+    material: sand
+  - id: stream-06
+    from: {equipment_id: G-001, port_id: outlet}
+    to: {equipment_id: B-001, port_id: inlet}
+    material: gravel

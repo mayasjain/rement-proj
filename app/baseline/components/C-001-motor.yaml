@@ -1,0 +1,10 @@
+schema_version: 1
+id: C-001-motor
+name: Drive motor
+type: electric_motor
+specifications:
+  rated_power_kw: 22
+geometry:
+  model_key: motor
+  local_position_m: [0.8, 0.6, 0]
+  dimensions_m: [0.6, 0.5, 0.5]

@@ -1,0 +1,16 @@
+schema_version: 1
+id: S-001
+name: Vibrating screen
+type: screen
+specifications:
+  max_solids_throughput_tph: 15
+  rated_power_kw: 5
+ports:
+  - {id: inlet, direction: input, material: crushed_aggregate}
+  - {id: fine, direction: output, material: fine_aggregate}
+  - {id: coarse, direction: output, material: coarse_aggregate}
+geometry:
+  model_key: screen
+  position_m: [8, 0, 0]
+  rotation_deg: [0, 0, 0]
+  dimensions_m: [2.5, 1.5, 2]

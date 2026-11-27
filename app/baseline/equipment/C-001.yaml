@@ -1,0 +1,16 @@
+schema_version: 1
+id: C-001
+name: Jaw crusher
+type: crusher
+specifications:
+  max_solids_throughput_tph: 12
+  rated_power_kw: 22
+ports:
+  - {id: inlet, direction: input, material: mixed_aggregate}
+  - {id: outlet, direction: output, material: crushed_aggregate}
+component_ids: [C-001-motor, C-001-jaw, C-001-frame]
+geometry:
+  model_key: jaw_crusher
+  position_m: [4, 0, 0]
+  rotation_deg: [0, 0, 0]
+  dimensions_m: [2, 2.5, 1.8]

@@ -1,0 +1,15 @@
+schema_version: 1
+id: W-001
+name: Sand washer
+type: washer
+specifications:
+  max_solids_throughput_tph: 8
+  rated_power_kw: 7
+ports:
+  - {id: inlet, direction: input, material: fine_aggregate}
+  - {id: outlet, direction: output, material: sand}
+geometry:
+  model_key: washer
+  position_m: [12, 0, -3]
+  rotation_deg: [0, 0, 0]
+  dimensions_m: [2.8, 1.6, 1.8]

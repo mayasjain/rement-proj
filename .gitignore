@@ -2,3 +2,8 @@
 /AGENTS.md
 /program.md
 /PLANT_AS_CODE_PLAN.md
+/IMPLEMENTATION_PLAN.md
+/demo-plant/
+/.venv/
+__pycache__/
+.pytest_cache/

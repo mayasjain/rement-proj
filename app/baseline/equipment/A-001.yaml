@@ -1,0 +1,13 @@
+schema_version: 1
+id: A-001
+name: Sand storage
+type: storage
+specifications:
+  rated_power_kw: 0
+ports:
+  - {id: inlet, direction: input, material: sand}
+geometry:
+  model_key: storage
+  position_m: [16, 0, -3]
+  rotation_deg: [0, 0, 0]
+  dimensions_m: [2.6, 1.4, 2.4]

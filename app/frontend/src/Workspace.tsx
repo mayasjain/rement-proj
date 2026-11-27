@@ -304,7 +304,7 @@ export function Workspace() {
         </nav>
         <section className="panel scene-panel" aria-label="3D plant layout">
           <div className="panel-heading"><h2>Plant layout</h2><span className="count">{plant.connections.length} material streams</span></div>
-          <PlantScene plant={plant} selectedId={selected} overloadedIds={overloaded} onSelect={select} />
+          <PlantScene plant={plant} result={result} selectedId={selected} overloadedIds={overloaded} onSelect={select} />
         </section>
         <Inspection view={view} selectedId={selected} inputs={inputs}
           onChange={baseline.revision ? change : undefined} busy={busy} />

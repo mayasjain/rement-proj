@@ -37,6 +37,8 @@ npm run dev
 
 Open [the local workspace](http://127.0.0.1:5173). Select the jaw crusher in the layout or equipment list, then choose its motor, jaw, or frame to inspect that part. Select **+20% feed** to see the crusher overload, then **Try 15 t/h crusher** to evaluate the upgrade. Scenario previews run in memory.
 
+The 3D view uses industrial GLB assemblies fitted to the plant dimensions in YAML. **Explode assembly** isolates the selected machine and spreads its component models for inspection. Click a component or its label to open the existing inspector. **Pause flow** freezes the material markers. Their density and movement reflect achievable flow in the evaluated scenario. Display speed, stockpile shape, and belt construction details are illustrative. Asset sources and regeneration commands are documented in [Industrial asset authoring](app/frontend/tools/README.md).
+
 ### Edit, save, and reload locally
 
 - Edit the requested feed and fine fraction in **Production scenario**. To change an equipment rating, power, or geometry, select the equipment and open **Edit specifications and geometry** in the inspector.
@@ -126,4 +128,4 @@ python -m pip install -r requirements-dev.txt
 python -m pytest
 ```
 
-Run `npm run build` in `app/frontend/` to type-check and build the workspace.
+Run `npm run build` in `app/frontend/` to type-check and build the workspace. Run `node --experimental-strip-types --test app/frontend/tools/visual-factory.test.mjs` from the repository root to check model coverage, transfer attachment coordinates, and the asset size budget.

@@ -1,135 +1,174 @@
-import { Component as Boundary, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { Component as Boundary, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { Line, OrbitControls } from '@react-three/drei'
-import { MathUtils, OrthographicCamera, Vector3 } from 'three'
-import type { Component, Equipment, EquipmentType, Plant, Vector } from './plant'
+import { OrbitControls, useGLTF } from '@react-three/drei'
+import { Box3, Color, Euler, Group, Mesh, MeshStandardMaterial, Object3D, OrthographicCamera, Vector3 } from 'three'
+import { BeltMaterial, TransferSupports } from './TransferBelts'
+import { assemblyPosition, assetName, conveyorRuns, hopperUrl, industrialUrl, renderLinks, rotation } from './visualFactory'
+import type { Component, Equipment, Plant, Throughput, Vector } from './plant'
 
-const steel = '#283c4e'
-const trim = '#688198'
-const dark = '#182735'
-const equipmentColors: Record<EquipmentType, string> = {
-  hopper: '#557b92', crusher: '#426783', screen: '#647e91',
-  washer: '#567e89', conveyor: '#4b667a', storage: '#547389',
-}
-
-function Box({ at, size, color, tilt = 0 }: { at: Vector; size: Vector; color: string; tilt?: number }) {
-  return <mesh position={at} rotation={[0, 0, tilt]} castShadow receiveShadow>
-    <boxGeometry args={size} /><meshStandardMaterial color={color} roughness={0.72} />
-  </mesh>
-}
-
-function Cylinder({ at, radii, height, color, sides = 24, horizontal = false }: {
-  at: Vector; radii: [number, number]; height: number; color: string; sides?: number; horizontal?: boolean
+function Asset({ source, highlight = 'none', centerOnGround = false }: {
+  source: Object3D; highlight?: 'overload' | 'part' | 'none'; centerOnGround?: boolean
 }) {
-  return <mesh position={at} rotation={[horizontal ? Math.PI / 2 : 0, sides === 4 ? Math.PI / 4 : 0, 0]} castShadow receiveShadow>
-    <cylinderGeometry args={[...radii, height, sides]} /><meshStandardMaterial color={color} roughness={0.7} />
-  </mesh>
+  const { instance, surfaces } = useMemo(() => {
+    const clone = source.clone(true)
+    const surfaces: { material: MeshStandardMaterial; original: Color; intensity: number }[] = []
+    clone.traverse(object => {
+      if (!(object instanceof Mesh)) return
+      object.castShadow = object.receiveShadow = true
+      const prepare = (material: MeshStandardMaterial) => {
+        const copy = material.clone()
+        surfaces.push({ material: copy, original: copy.emissive.clone(), intensity: copy.emissiveIntensity })
+        return copy
+      }
+      object.material = Array.isArray(object.material) ? object.material.map(prepare) : prepare(object.material)
+    })
+    const root = new Group()
+    root.add(clone)
+    if (centerOnGround) {
+      const box = new Box3().setFromObject(clone)
+      const center = box.getCenter(new Vector3())
+      clone.position.sub(center.setY(box.min.y))
+      root.scale.set(1, 1, 1).divide(box.getSize(new Vector3()))
+    }
+    return { instance: root, surfaces }
+  }, [source, centerOnGround])
+
+  const { invalidate } = useThree()
+  useLayoutEffect(() => {
+    for (const { material, original, intensity } of surfaces) {
+      if (highlight === 'none') {
+        material.emissive.copy(original)
+        material.emissiveIntensity = intensity
+      } else {
+        material.emissive.set(highlight === 'overload' ? '#cf4427' : '#f1aa40')
+        material.emissiveIntensity = highlight === 'overload' ? .53 : .32
+      }
+    }
+    invalidate()
+  }, [surfaces, highlight, invalidate])
+  useEffect(() => () => surfaces.forEach(({ material }) => material.dispose()), [surfaces])
+  return <primitive object={instance} />
 }
 
-function Machine({ type, color }: { type: EquipmentType; color: string }) {
-  switch (type) {
-    case 'hopper':
-      return <>
-        <Cylinder at={[0, .58, 0]} radii={[.68, .19]} height={.55} sides={4} color={color} />
-        <Box at={[0, .86, 0]} size={[.96, .08, .96]} color={steel} />
-        <Box at={[0, .91, 0]} size={[.78, .05, .78]} color="#a39279" />
-        {[-.33, .33].flatMap(x => [-.32, .32].map(z =>
-          <Box key={`${x},${z}`} at={[x, .21, z]} size={[.08, .42, .08]} color={steel} />))}
-      </>
-    case 'crusher':
-      return <>
-        <Box at={[-.4, .48, 0]} size={[.12, .48, .73]} color={color} />
-        <Box at={[.38, .49, -.11]} size={[.1, .5, .52]} color={color} />
-        <Box at={[0, .7, -.35]} size={[.9, .2, .13]} color={color} />
-        <Cylinder at={[0, .81, -.02]} radii={[.46, .21]} height={.28} sides={4} color={color} />
-        <Box at={[0, .96, -.02]} size={[.66, .05, .66]} color={steel} />
-        <Box at={[0, .99, -.02]} size={[.48, .017, .48]} color={dark} />
-      </>
-    case 'screen':
-      return <>
-        <Box at={[0, .11, 0]} size={[.88, .12, .75]} color={steel} />
-        {[-.34, .34].map(x => <Box key={x} at={[x, .35, 0]} size={[.1, .52, .62]} color={trim} />)}
-        <group rotation={[0, 0, -.13]}>
-          <Box at={[0, .69, 0]} size={[.98, .18, .9]} color={color} />
-          <Box at={[0, .8, 0]} size={[.86, .09, .7]} color={dark} />
-          {[-.33, -.22, -.11, 0, .11, .22, .33].map(x =>
-            <Box key={x} at={[x, .85, 0]} size={[.035, .03, .69]} color={trim} />)}
-        </group>
-      </>
-    case 'washer':
-      return <>
-        <Box at={[0, .15, 0]} size={[.95, .15, .75]} color={steel} />
-        <Box at={[0, .36, 0]} size={[.9, .4, .88]} color={color} />
-        <Cylinder at={[0, .65, 0]} radii={[.3, .3]} height={.72} color={color} horizontal />
-        <Cylinder at={[0, .65, .37]} radii={[.23, .23]} height={.08} color={trim} horizontal />
-        <Cylinder at={[0, .65, .43]} radii={[.085, .085]} height={.05} color={dark} horizontal />
-      </>
-    case 'conveyor':
-      return <>
-        {[-.37, .36].map(x => <Box key={x} at={[x, .3, 0]} size={[.055, .55, .68]} color={steel} />)}
-        <group position={[0, .63, 0]} rotation={[0, 0, .14]}>
-          <Box at={[0, 0, 0]} size={[.99, .15, .79]} color={color} />
-          <Box at={[0, .09, 0]} size={[.95, .07, .63]} color={dark} />
-          {[-.34, -.17, 0, .17, .34].map(x =>
-            <Box key={x} at={[x, .13, 0]} size={[.013, .012, .6]} color={trim} />)}
-        </group>
-      </>
-    case 'storage':
-      return <>
-        <Box at={[0, .07, 0]} size={[.98, .11, .98]} color={steel} />
-        <Box at={[0, .3, 0]} size={[.92, .33, .92]} color={color} />
-        {[-.44, .44].map(edge => <group key={edge}>
-          <Box at={[edge, .64, 0]} size={[.07, .68, .94]} color={color} />
-          <Box at={[0, .55, edge]} size={[.89, .5, .07]} color={color} />
-        </group>)}
-        <mesh position={[0, .51, 0]} castShadow receiveShadow>
-          <coneGeometry args={[.54, .56, 5]} /><meshStandardMaterial color="#a7977b" />
-        </mesh>
-      </>
-  }
-}
-
-function InternalPart({ item, selected, overloaded, onSelect }: {
-  item: Component; selected: boolean; overloaded: boolean; onSelect: (id: string) => void
-}) {
-  const color = selected ? '#ecb45c' : overloaded ? '#cf725c' : '#c29660'
-  return <group position={item.geometry.local_position_m} scale={item.geometry.dimensions_m}
-    onClick={event => { event.stopPropagation(); onSelect(item.id) }}>
-    {item.geometry.model_key === 'motor'
-      ? <Cylinder at={[0, 0, 0]} radii={[.45, .45]} height={.9} horizontal color={color} />
-      : <Box at={[0, 0, 0]} size={[1, 1, 1]} color={color} tilt={item.geometry.model_key === 'jaw' ? .26 : 0} />}
-  </group>
-}
-
-function ViewCamera({ center, span }: { center: Vector; span: number }) {
+function ViewCamera({ center, span, assembly }: { center: Vector; span: number; assembly?: Equipment }) {
   const { camera, size } = useThree()
-  const [x, y, z] = center
+  const [x, y, z] = assembly
+    ? [assembly.geometry.position_m[0], assembly.geometry.position_m[1] + 1.57, assembly.geometry.position_m[2] + .57]
+    : center
+  const distance = assembly ? Math.max(6.5, ...assembly.geometry.dimensions_m.map(value => value * 1.6)) : span
   useLayoutEffect(() => {
     if (!(camera instanceof OrthographicCamera)) return
-    camera.position.set(x + span * .75, y + span * .93, z + span * 1.38)
-    camera.zoom = Math.min(size.width / (span * 1.2), size.height / (span * .72))
+    camera.position.set(x + distance * .66, y + distance * .78, z + distance * 1.46)
+    camera.zoom = Math.min(size.width / (distance * 1.05), size.height / (distance * .69))
     camera.lookAt(x, y, z)
     camera.updateProjectionMatrix()
-  }, [camera, x, y, z, span, size.width, size.height])
-  return <OrbitControls target={center} makeDefault minPolarAngle={.12} maxPolarAngle={Math.PI / 2.05}
-    minZoom={10} maxZoom={160} enableDamping={false} />
+  }, [camera, x, y, z, distance, size.width, size.height])
+  const target = useMemo<Vector>(() => [x, y, z], [x, y, z])
+  return <OrbitControls target={target} makeDefault minPolarAngle={.12} maxPolarAngle={Math.PI / 2.02}
+    minZoom={1} maxZoom={320} enableDamping={false} />
 }
 
-function ProjectLabels({ equipment, labels }: { equipment: Equipment[]; labels: Map<string, HTMLButtonElement> }) {
+interface LabelAnchor { id: string; label: string; point: Vector3 }
+
+function ProjectLabels({ anchors, labels }: { anchors: LabelAnchor[]; labels: Map<string, HTMLButtonElement> }) {
   const point = useMemo(() => new Vector3(), [])
   useFrame(({ camera, size }) => {
     camera.updateMatrixWorld()
-    for (const item of equipment) {
-      const label = labels.get(item.id)
+    for (const anchor of anchors) {
+      const label = labels.get(anchor.id)
       if (!label) continue
-      const [x, y, z] = item.geometry.position_m
-      point.set(x, y + item.geometry.dimensions_m[1] + .4, z).project(camera)
-      label.style.visibility = Math.abs(point.x) <= 1 && Math.abs(point.y) <= 1 && Math.abs(point.z) <= 1
+      point.copy(anchor.point).project(camera)
+      const visibility = Math.abs(point.x) <= 1 && Math.abs(point.y) <= 1 && Math.abs(point.z) <= 1
         ? 'visible' : 'hidden'
-      label.style.transform = `translate(${(point.x + 1) * size.width / 2}px, ${(1 - point.y) * size.height / 2}px) translate(-50%, -50%)`
+      const transform = 'translate(' + ((point.x + 1) * size.width / 2) + 'px, '
+        + ((1 - point.y) * size.height / 2) + 'px) translate(-50%, -50%)'
+      if (label.style.visibility !== visibility) label.style.visibility = visibility
+      if (label.style.transform !== transform) label.style.transform = transform
     }
   })
   return null
+}
+
+function PlantYard({ center, span }: { center: Vector; span: number }) {
+  return <>
+    <mesh position={[center[0], -.14, center[2]]} receiveShadow>
+      <boxGeometry args={[span * 1.24, .25, span * .62]} />
+      <meshStandardMaterial color="#a8aaa3" roughness={.94} />
+    </mesh>
+    <mesh position={[center[0], -.29, center[2]]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+      <planeGeometry args={[span * 4, span * 4]} />
+      <meshStandardMaterial color="#7d898b" roughness={1} />
+    </mesh>
+    {[-.28, .28].map(z => <mesh key={z} position={[center[0], -.006, center[2] + z * span]}
+      rotation={[-Math.PI / 2, 0, 0]}>
+      <planeGeometry args={[span * 1.14, .045]} />
+      <meshStandardMaterial color="#c9a54e" roughness={.91} />
+    </mesh>)}
+    {[-.36, -.18, 0, .18, .36].map(x => <mesh key={x} position={[center[0] + x * span, -.008, center[2]]}
+      rotation={[-Math.PI / 2, 0, 0]}>
+      <planeGeometry args={[.019, span * .61]} />
+      <meshStandardMaterial color="#828680" roughness={1} />
+    </mesh>)}
+  </>
+}
+
+function EquipmentMeshes({ plant, result, selectedId, exploded, overloadedIds, playing, onSelect }: {
+  plant: Plant; result: Throughput; selectedId: string; exploded?: Equipment
+  overloadedIds: Set<string>; playing: boolean; onSelect: (id: string) => void
+}) {
+  const industrial = useGLTF(industrialUrl)
+  const hopper = useGLTF(hopperUrl)
+  const components = useMemo(() => new Map(plant.components.map(item => [item.id, item])), [plant.components])
+  const links = useMemo(() => renderLinks(plant), [plant])
+  const materialPaths = useMemo(() => [...links, ...conveyorRuns(plant)], [links, plant])
+  const achieved = useMemo(() => Object.fromEntries([
+    ...Object.entries(result.streams).map(([id, flow]) => [id, flow.achievable_tph]),
+    ...Object.entries(result.equipment).map(([id, flow]) => ['equipment:' + id, flow.achievable_tph]),
+  ]), [result.streams, result.equipment])
+  const { gl, invalidate } = useThree()
+  useLayoutEffect(() => {
+    gl.shadowMap.autoUpdate = false
+    gl.shadowMap.needsUpdate = true
+    invalidate()
+  }, [gl, invalidate, plant, exploded?.id])
+
+  return <>
+    {!exploded && links.map(link => <group key={link.id} position={link.start.clone().lerp(link.end, .5)} quaternion={link.quaternion}>
+      <group position={[0, -.32, 0]} scale={[link.length, .34, link.width]}>
+        <Asset source={industrial.nodes.transfer} />
+      </group>
+    </group>)}
+    {!exploded && <TransferSupports links={links} />}
+    {!exploded && <BeltMaterial links={materialPaths} achieved={achieved} playing={playing} />}
+    {(exploded ? [exploded] : plant.equipment).map(item => {
+      const { position_m, dimensions_m } = item.geometry
+      const overloaded = overloadedIds.has(item.id)
+      const active = selectedId === item.id || item.component_ids.includes(selectedId)
+      const source = item.type === 'hopper' ? hopper.scene : industrial.nodes[assetName(item)]
+      return <group key={item.id} position={position_m}>
+        <group rotation={rotation(item)}>
+          <group scale={dimensions_m} onClick={event => { event.stopPropagation(); onSelect(item.id) }}>
+            <Asset source={source} highlight={overloaded ? 'overload' : 'none'} centerOnGround={item.type === 'hopper'} />
+          </group>
+          {item.component_ids.map(id => {
+            const component: Component = components.get(id)!
+            const model = industrial.nodes[component.geometry.model_key]
+            return <group key={id} position={assemblyPosition(component, exploded?.id === item.id)}
+              scale={component.geometry.dimensions_m}
+              onClick={event => { event.stopPropagation(); onSelect(id) }}>
+              {model ? <Asset source={model} highlight={id === selectedId ? 'part' : 'none'} /> :
+                <mesh><boxGeometry /><meshStandardMaterial color="#8c989e" wireframe /></mesh>}
+            </group>
+          })}
+        </group>
+        {(active || overloaded) && <mesh position={[0, .007, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <ringGeometry args={[Math.hypot(dimensions_m[0], dimensions_m[2]) * .475,
+            Math.hypot(dimensions_m[0], dimensions_m[2]) * .495, 48]} />
+          <meshBasicMaterial color={overloaded ? '#ce5239' : '#318494'} />
+        </mesh>}
+      </group>
+    })}
+  </>
 }
 
 class SceneBoundary extends Boundary<{ children: ReactNode }, { failed: boolean }> {
@@ -139,97 +178,86 @@ class SceneBoundary extends Boundary<{ children: ReactNode }, { failed: boolean 
 }
 
 function SceneUnavailable() {
-  return <div className="scene-unavailable">3D needs WebGL. Use the equipment list to inspect the plant.</div>
+  return <div className="scene-unavailable">The 3D scene could not load. You can inspect the plant from the equipment list.</div>
 }
 
-export function PlantScene({ plant, selectedId, overloadedIds, onSelect }: {
-  plant: Plant; selectedId: string; overloadedIds: Set<string>; onSelect: (id: string) => void
+export function PlantScene({ plant, result, selectedId, overloadedIds, onSelect }: {
+  plant: Plant; result: Throughput; selectedId: string; overloadedIds: Set<string>; onSelect: (id: string) => void
 }) {
   const [cameraReset, resetCamera] = useState(0)
+  const [explodedId, setExplodedId] = useState('')
+  const [playing, setPlaying] = useState(() => !window.matchMedia('(prefers-reduced-motion: reduce)').matches)
   const labels = useRef(new Map<string, HTMLButtonElement>())
+  const assembly = plant.equipment.find(item => item.component_ids.length &&
+    (item.id === selectedId || item.component_ids.includes(selectedId)))
+  const exploded = assembly?.id === explodedId ? assembly : undefined
+  const anchors = useMemo<LabelAnchor[]>(() => {
+    if (exploded) {
+      return plant.components.filter(item => exploded.component_ids.includes(item.id)).map(item => ({
+        id: item.id,
+        label: item.name,
+        point: new Vector3(...assemblyPosition(item, true)).applyEuler(new Euler(...rotation(exploded)))
+          .add(new Vector3(...exploded.geometry.position_m)).add(new Vector3(0, item.geometry.dimensions_m[1] * .5 + .16, 0)),
+      }))
+    }
+    return plant.equipment.map(item => ({
+      id: item.id, label: item.name,
+      point: new Vector3(...item.geometry.position_m).add(new Vector3(0, item.geometry.dimensions_m[1] + .4, 0)),
+    }))
+  }, [plant, exploded])
   const layout = useMemo(() => {
     const xs = plant.equipment.map(item => item.geometry.position_m[0])
     const zs = plant.equipment.map(item => item.geometry.position_m[2])
     const minX = Math.min(...xs), maxX = Math.max(...xs)
     const minZ = Math.min(...zs), maxZ = Math.max(...zs)
-    const center: Vector = [(minX + maxX) / 2, 0, (minZ + maxZ) / 2]
-    return { center, span: Math.max(maxX - minX, maxZ - minZ, 8) + 4 }
+    const center: Vector = [(minX + maxX) / 2, .45, (minZ + maxZ) / 2]
+    return { center, span: Math.max(maxX - minX, maxZ - minZ, 8) + 4.6 }
   }, [plant.equipment])
-  const equipment = new Map(plant.equipment.map(item => [item.id, item]))
-  const components = new Map(plant.components.map(item => [item.id, item]))
 
-  return <div className="viewport">
+  return <div className="viewport industrial-viewport">
     <SceneBoundary key={cameraReset}>
-      <Canvas orthographic frameloop="demand" shadows="percentage" dpr={[1, 1.5]}
-        camera={{ near: .1, far: 300 }} fallback={<SceneUnavailable />}>
-        <color attach="background" args={['#eaf0f3']} />
-        <ViewCamera {...layout} />
-        <ProjectLabels equipment={plant.equipment} labels={labels.current} />
-        <ambientLight intensity={1.4} />
-        <directionalLight position={[layout.center[0] + 8, 14, 7]} intensity={2.35} castShadow
-          target-position={layout.center} shadow-mapSize={[1024, 1024]}
-          shadow-camera-left={-layout.span} shadow-camera-right={layout.span}
-          shadow-camera-top={layout.span} shadow-camera-bottom={-layout.span}
-          shadow-camera-far={layout.span * 3} shadow-normalBias={.035} />
-        <gridHelper args={[layout.span * 2, Math.ceil(layout.span * 2), '#b8c9d3', '#cedbe2']}
-          position={[layout.center[0], -.015, layout.center[2]]} />
-        <mesh position={[layout.center[0], -.03, layout.center[2]]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-          <planeGeometry args={[layout.span * 2, layout.span * 2]} />
-          <meshStandardMaterial color="#e7eef2" roughness={1} />
-        </mesh>
-        {plant.connections.map(stream => {
-          const source = equipment.get(stream.from.equipment_id)!
-          const destination = equipment.get(stream.to.equipment_id)!
-          const start = new Vector3(...source.geometry.position_m)
-          const end = new Vector3(...destination.geometry.position_m)
-          const from = start.clone().lerp(end, .2).setY(start.y + .25)
-          const to = start.clone().lerp(end, .8).setY(end.y + .25)
-          const midpoint = from.clone().lerp(to, .62)
-          const angle = Math.atan2(to.z - from.z, to.x - from.x)
-          return <group key={stream.id}>
-            <Line points={[from, to]} color="#4c819b" lineWidth={1.8} dashed dashSize={.18} gapSize={.1} />
-            <mesh position={midpoint} rotation={[0, -angle, -Math.PI / 2]}>
-              <coneGeometry args={[.095, .24, 10]} /><meshStandardMaterial color="#406b84" />
-            </mesh>
-          </group>
-        })}
-        {plant.equipment.map(item => {
-          const { position_m, rotation_deg, dimensions_m } = item.geometry
-          const overloaded = overloadedIds.has(item.id)
-          const active = selectedId === item.id || item.component_ids.includes(selectedId)
-          const color = overloaded ? '#b3473c' : equipmentColors[item.type]
-          return <group key={item.id} position={position_m}>
-            <group rotation={rotation_deg.map(MathUtils.degToRad) as Vector}>
-              <group scale={dimensions_m} onClick={event => { event.stopPropagation(); onSelect(item.id) }}>
-                <Machine type={item.type} color={color} />
-              </group>
-              {item.component_ids.map(id => <InternalPart key={id} item={components.get(id)!}
-                selected={id === selectedId} overloaded={overloaded} onSelect={onSelect} />)}
-            </group>
-            {(active || overloaded) && <mesh position={[0, .016, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-              <ringGeometry args={[Math.max(dimensions_m[0], dimensions_m[2]) * .55,
-                Math.max(dimensions_m[0], dimensions_m[2]) * .57, 52]} />
-              <meshBasicMaterial color={overloaded ? '#b94739' : '#2c7193'} />
-            </mesh>}
-          </group>
-        })}
+      <Canvas orthographic frameloop="demand" shadows="percentage" dpr={[1, 1.25]}
+        gl={{ powerPreference: 'high-performance', antialias: true }} camera={{ near: .1, far: 350 }}
+        fallback={<SceneUnavailable />}>
+        <color attach="background" args={['#829198']} />
+        <ViewCamera {...layout} assembly={exploded} />
+        <ProjectLabels anchors={anchors} labels={labels.current} />
+        <hemisphereLight args={['#eaf4ff', '#968878', 2.05]} />
+        <directionalLight position={[layout.center[0] - 10, 14, 8]} intensity={2.65} castShadow
+          target-position={[layout.center[0], 0, layout.center[2]]} shadow-mapSize={[1024, 1024]}
+          shadow-camera-left={-layout.span * .65} shadow-camera-right={layout.span * .65}
+          shadow-camera-top={layout.span * .65} shadow-camera-bottom={-layout.span * .65}
+          shadow-camera-far={layout.span * 3} shadow-normalBias={.024} shadow-bias={-.00015} />
+        <PlantYard {...layout} />
+        <Suspense fallback={null}>
+          <EquipmentMeshes plant={plant} result={result} exploded={exploded} selectedId={selectedId}
+            overloadedIds={overloadedIds} playing={playing} onSelect={onSelect} />
+        </Suspense>
       </Canvas>
     </SceneBoundary>
     <div className="scene-labels">
-      {plant.equipment.map(item => {
-        const active = selectedId === item.id || item.component_ids.includes(selectedId)
-        const overloaded = overloadedIds.has(item.id)
-        return <button key={item.id} ref={node => {
-          if (node) labels.current.set(item.id, node)
-          else labels.current.delete(item.id)
-        }} className={`scene-tag ${active ? 'active' : ''} ${overloaded ? 'overloaded' : ''}`}
-          aria-label={`Select ${item.name} in 3D`} aria-pressed={active} onClick={() => onSelect(item.id)}>
-          {overloaded && <span aria-hidden="true">! </span>}{item.id}
+      {anchors.map(anchor => {
+        const active = selectedId === anchor.id || (!exploded && assembly?.id === anchor.id)
+        const overloaded = overloadedIds.has(anchor.id)
+        return <button key={anchor.id} ref={node => {
+          if (node) labels.current.set(anchor.id, node)
+          else labels.current.delete(anchor.id)
+        }} className={'scene-tag ' + (active ? 'active ' : '') + (overloaded ? 'overloaded' : '')}
+          aria-label={'Select ' + anchor.label + ' in 3D'} aria-pressed={active} onClick={() => onSelect(anchor.id)}>
+          {overloaded && <span aria-hidden="true">! </span>}{exploded ? anchor.label : anchor.id}
         </button>
       })}
     </div>
-    <button className="reset-view" onClick={() => resetCamera(value => value + 1)}>Reset view</button>
-    <div className="view-legend"><span /> Material flow</div>
-    <div className="view-help">Drag to orbit · Scroll to zoom</div>
+    <div className="scene-tools">
+      {!exploded && <button aria-pressed={playing} onClick={() => setPlaying(value => !value)}>{playing ? 'Pause flow' : 'Play flow'}</button>}
+      {assembly && <button aria-pressed={!!exploded} onClick={() => setExplodedId(exploded ? '' : assembly.id)}>
+        {exploded ? 'Reassemble' : 'Explode assembly'}
+      </button>}
+      <button onClick={() => { setExplodedId(''); resetCamera(value => value + 1) }}>Reset view</button>
+    </div>
+    {!exploded && <div className="view-legend" title="The motion and density indicate achievable flow. Belt speed and particle sizes are illustrative.">
+      <span /> Achievable material flow
+    </div>}
+    <div className="view-help">{exploded ? 'Select a separated component' : 'Drag to orbit · Scroll to zoom'}</div>
   </div>
 }

@@ -37,6 +37,19 @@ npm run dev
 
 Open [the local workspace](http://127.0.0.1:5173). Select the jaw crusher in the layout or equipment list, then choose its motor, jaw, or frame to inspect that part. Select **+20% feed** to see the crusher overload, then **Try 15 t/h crusher** to evaluate the upgrade. **Reload baseline** returns to the saved YAML. Scenario previews run in memory.
 
+## Deploy the demo to Cloudflare
+
+The Cloudflare Worker serves the built workspace and runs the same Python simulation engine against the bundled sample plant. It uses the checked-in fixture in `app/baseline/` for every request.
+
+From the project root, with the Python environment active, frontend dependencies installed, and `uv` and an authenticated Wrangler session available:
+
+```sh
+npm --prefix app/frontend run build
+stage_dir="$(mktemp -d)/worker"
+python -m deploy.cloudflare.stage "$stage_dir"
+(cd "$stage_dir" && uv run --python 3.14 pywrangler deploy)
+```
+
 ## Evaluate the crusher upgrade
 
 Run both previews against the same baseline fixture. The requested feed stays at 13.2 t/h and the fine fraction stays at 60%. The upgrade changes only the crusher rating. Both previews are read-only.

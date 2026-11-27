@@ -36,7 +36,7 @@ function displayValue(value: unknown, unit: string): string {
 
 export function VersionControl({ refresh, busy, dirty, onAction }: {
   refresh: number; busy: boolean; dirty: boolean
-  onAction: (head: string, action: GitAction) => Promise<string>
+  onAction?: (head: string, action: GitAction) => Promise<string>
 }) {
   const [status, setStatus] = useState<Status>()
   const [statusError, setStatusError] = useState('')
@@ -72,7 +72,7 @@ export function VersionControl({ refresh, busy, dirty, onAction }: {
 
   async function createCommit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (!status || dirty || busy || !message.trim()) return
+    if (!onAction || !status || dirty || busy || !message.trim()) return
     setNotice('')
     const error = await onAction(status.head, { kind: 'commit', message: message.trim() })
     setWriteError(error)
@@ -84,7 +84,7 @@ export function VersionControl({ refresh, busy, dirty, onAction }: {
   }
 
   async function restore() {
-    if (!status || !commit || status.dirty || dirty || busy) return
+    if (!onAction || !status || !commit || status.dirty || dirty || busy) return
     if (!window.confirm(`Restore ${commit.hash.slice(0, 7)} as a new commit on ${status.branch}?`)) return
     setNotice('')
     const error = await onAction(status.head, { kind: 'restore', commit: commit.hash })
@@ -102,7 +102,7 @@ export function VersionControl({ refresh, busy, dirty, onAction }: {
         <span className="branch-name">{status.branch || 'Detached HEAD'}</span>
         <code title={status.head}>{status.head.slice(0, 7)}</code>
         <span className={`status ${status.dirty ? 'bad' : 'good'}`}>
-          {status.dirty ? 'Uncommitted files' : 'Clean'}
+          {onAction ? status.dirty ? 'Uncommitted files' : 'Clean' : 'Published snapshot'}
         </span>
       </div>}
     </div>
@@ -125,11 +125,11 @@ export function VersionControl({ refresh, busy, dirty, onAction }: {
               <div className="comparison">
                 <div className="comparison-heading">
                   <h3>Compare <code>{commit?.hash.slice(0, 7)}</code></h3>
-                  <label>With <select value={against} disabled={busy}
+                  {onAction ? <label>With <select value={against} disabled={busy}
                     onChange={event => setAgainst(event.target.value as Comparison)}>
                     <option value="working">Saved YAML</option>
                     <option value="head">Current commit</option>
-                  </select></label>
+                  </select></label> : <span className="muted">With published plant</span>}
                 </div>
                 {diffError ? <p className="warning-text" role="alert">{diffError}</p> :
                   !diff ? <p className="muted" role="status">Loading field changes…</p> :
@@ -145,18 +145,18 @@ export function VersionControl({ refresh, busy, dirty, onAction }: {
                           </tr>
                         })}</tbody>
                       </table>}
-                <button className="button light-button restore-button" disabled={busy || dirty || status.dirty ||
-                  !status.branch || commit?.hash === status.head} onClick={() => void restore()}>Restore snapshot</button>
+                {onAction && <button className="button light-button restore-button" disabled={busy || dirty || status.dirty ||
+                  !status.branch || commit?.hash === status.head} onClick={() => void restore()}>Restore snapshot</button>}
               </div>
             </div>
-            <form className="commit-form" onSubmit={createCommit}>
+            {onAction && <form className="commit-form" onSubmit={createCommit}>
               <label>Commit message <input value={message} maxLength={240} required disabled={busy}
                 onChange={event => setMessage(event.target.value)} placeholder="Describe the saved design change" /></label>
               <button className="button primary" disabled={busy || dirty || !status.dirty || !status.branch || !message.trim()}
                 type="submit">Commit saved changes</button>
-            </form>
-            {dirty ? <p className="muted history-note">Save or discard the draft before committing or restoring.</p> :
-              status.dirty && <p className="muted history-note">Commit or resolve uncommitted files before restoring.</p>}
+            </form>}
+            {onAction && (dirty ? <p className="muted history-note">Save or discard the draft before committing or restoring.</p> :
+              status.dirty && <p className="muted history-note">Commit or resolve uncommitted files before restoring.</p>)}
             {writeError && <p role="alert" className="warning-text history-note">{writeError}</p>}
             {notice && <p role="status" className="history-note">{notice}</p>}
           </>}

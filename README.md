@@ -59,6 +59,8 @@ Use the same seed snapshot to reset subsequent rehearsals. Restore requires a cl
 
 The Cloudflare Worker serves a preview-only workspace and runs the same Python simulation engine against the bundled sample plant. It uses the checked-in fixture in `app/baseline/` for every request.
 
+To publish the **History** panel, pass `--history-repo /path/to/rehearsal-plant` to the staging command. Use a dedicated rehearsal repository with a clean working tree and the sample baseline restored. The deployment includes commit messages, hashes, dates, and field diffs from that repository as a read-only export. Visitors can compare published designs and run scenario previews. Saving, committing, and restoring are available in the local workspace.
+
 From the project root, with the Python environment active, frontend dependencies installed, and `uv` and an authenticated Wrangler session available:
 
 ```sh

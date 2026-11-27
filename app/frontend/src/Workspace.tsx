@@ -311,7 +311,8 @@ export function Workspace() {
       </div>
       <Scenario baseline={baseline} view={view} inputs={inputs} onChange={change}
         onSimulate={values => void submit(values, 'evaluate')} action={action} />
-      {hasHistory && <VersionControl refresh={gitRefresh} busy={busy} dirty={dirty} onAction={updateHistory} />}
+      {hasHistory && <VersionControl refresh={gitRefresh} busy={busy} dirty={dirty}
+        onAction={baseline.revision ? updateHistory : undefined} />}
     </main>
   </>
 }

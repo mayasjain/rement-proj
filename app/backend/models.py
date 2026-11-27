@@ -155,6 +155,12 @@ class Plant(Model):
         return self
 
 
+class PlantSnapshot(Model):
+    plant: Plant
+    revision: str | None = None
+    git_dirty: bool | None = None
+
+
 def validate_process(equipment, connections):
     ports = {(item.id, port.id): port for item in equipment.values() for port in item.ports}
     occupied = set()

@@ -1,6 +1,6 @@
 # Plant-as-Code
 
-Plant-as-Code represents a miniature aggregate recycling plant as versioned YAML. The local 3D workspace lets you inspect equipment and preview throughput scenarios. The command-line tools validate the plant, evaluate throughput, and initialize a separate Git repository for the design.
+Plant-as-Code represents a miniature aggregate recycling plant as versioned YAML. The local 3D workspace lets you inspect equipment, evaluate throughput scenarios, and save designs to YAML. The command-line tools validate the plant, evaluate throughput, and initialize a separate Git repository for the design.
 
 The sample design starts at **11 t/h requested feed** with a **60% fine fraction**. Equipment ratings are invented for the demonstration. The process models dry solids, treats the washer as a pass-through, and uses storage as an output sink.
 
@@ -35,11 +35,19 @@ npm ci
 npm run dev
 ```
 
-Open [the local workspace](http://127.0.0.1:5173). Select the jaw crusher in the layout or equipment list, then choose its motor, jaw, or frame to inspect that part. Select **+20% feed** to see the crusher overload, then **Try 15 t/h crusher** to evaluate the upgrade. **Reload baseline** returns to the saved YAML. Scenario previews run in memory.
+Open [the local workspace](http://127.0.0.1:5173). Select the jaw crusher in the layout or equipment list, then choose its motor, jaw, or frame to inspect that part. Select **+20% feed** to see the crusher overload, then **Try 15 t/h crusher** to evaluate the upgrade. Scenario previews run in memory.
+
+### Edit, save, and reload locally
+
+- Edit the requested feed and fine fraction in **Production scenario**. To change an equipment rating, power, or geometry, select the equipment and open **Edit specifications and geometry** in the inspector.
+- **Evaluate** previews the entire draft. **Save** validates and writes the draft to YAML. A capacity shortfall stays visible as an engineering finding and can be saved for comparison. After saving, **Saved to YAML · Git changes** indicates work awaiting a commit.
+- **Reload** reads the current YAML from disk. If a file changed externally, the save is rejected and your draft stays open. Copy any values you want to keep before confirming a reload. If YAML is malformed, the workspace names the affected file and keeps the last loaded design visible.
+
+The saver checks a revision derived from the plant YAML and updates only changed files. Changed YAML files are reserialized. If a save is interrupted, the next local load uses a recovery journal to roll back its partial writes.
 
 ## Deploy the demo to Cloudflare
 
-The Cloudflare Worker serves the built workspace and runs the same Python simulation engine against the bundled sample plant. It uses the checked-in fixture in `app/baseline/` for every request.
+The Cloudflare Worker serves a preview-only workspace and runs the same Python simulation engine against the bundled sample plant. It uses the checked-in fixture in `app/baseline/` for every request.
 
 From the project root, with the Python environment active, frontend dependencies installed, and `uv` and an authenticated Wrangler session available:
 

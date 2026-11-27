@@ -17,26 +17,52 @@ class PlantError(Exception):
     """An actionable error reading or initializing a plant."""
 
 
-def read_yaml(path, model):
+def read_yaml(path, model, content: bytes):
     try:
-        with path.open(encoding="utf-8") as stream:
-            data = yaml.safe_load(stream)
-        return model.model_validate(data)
-    except (OSError, UnicodeError, yaml.YAMLError, ValidationError) as error:
+        return model.model_validate(yaml.safe_load(content.decode("utf-8")))
+    except (UnicodeError, yaml.YAMLError, ValidationError) as error:
         raise PlantError(f"{path}: {error}") from error
 
 
-def load_plant(root: Path) -> Plant:
-    factory = read_yaml(root / "factory.yaml", Factory)
-    requirements = read_yaml(root / "requirements.yaml", Requirements)
-    connections = read_yaml(root / "connections.yaml", Connections).connections
-    equipment = [read_yaml(path, Equipment) for path in sorted((root / "equipment").glob("*.yaml"))]
-    components = [read_yaml(path, Component) for path in sorted((root / "components").glob("*.yaml"))]
+def plant_documents(root: Path) -> dict[Path, bytes]:
+    paths = [root / name for name in ("factory.yaml", "requirements.yaml", "connections.yaml")]
+    for directory in ("equipment", "components"):
+        path = root / directory
+        if path.is_symlink():
+            raise PlantError(f"{path} must be a plant directory, not a symbolic link.")
+        paths.extend(sorted(path.glob("*.yaml")))
+    documents = {}
+    for path in paths:
+        try:
+            if path.is_symlink() or not path.is_file():
+                raise PlantError(f"{path} must be a regular YAML file.")
+            documents[path.relative_to(root)] = path.read_bytes()
+        except OSError as error:
+            raise PlantError(f"{path}: {error}") from error
+    return documents
+
+
+def parse_plant(root: Path, documents: dict[Path, bytes]) -> Plant:
+    def read(name, model):
+        return read_yaml(root / name, model, documents[Path(name)])
+
+    def read_group(directory, model):
+        return [read(path, model) for path in documents if path.parent == Path(directory)]
+
     try:
-        return Plant(factory=factory, requirements=requirements, equipment=equipment,
-                     components=components, connections=connections)
+        return Plant(
+            factory=read("factory.yaml", Factory),
+            requirements=read("requirements.yaml", Requirements),
+            equipment=read_group("equipment", Equipment),
+            components=read_group("components", Component),
+            connections=read("connections.yaml", Connections).connections,
+        )
     except ValidationError as error:
         raise PlantError(f"{root}: {error}") from error
+
+
+def load_plant(root: Path) -> Plant:
+    return parse_plant(root, plant_documents(root))
 
 
 def git(root: Path, *args: str) -> str:

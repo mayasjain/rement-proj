@@ -38,6 +38,9 @@ ul { padding: 0; list-style: none; }
 }
 .secondary { color: #f0f6f9; background: #203744; border-color: #49606c; }
 .secondary:hover { background: #2a4757; }
+.save-button { color: #123244; background: #bce3f0; }
+.save-button:hover { background: #d7f0f8; }
+.save-button:disabled { cursor: default; }
 .primary { background: #205770; color: white; }
 .primary:hover { background: #163e51; }
 main { max-width: 1600px; margin: auto; padding: 23px clamp(16px, 3vw, 48px) 28px; }
@@ -84,6 +87,14 @@ h4 { margin: 16px 0 4px; font-size: 11px; }
 .warning-text { color: var(--danger); }
 .ports li { display: flex; gap: 8px; align-items: center; min-height: 25px; font-size: 11px; }
 .port-direction { width: 27px; color: var(--muted); font: 10px ui-monospace, Menlo, Consolas, monospace; }
+.edit-equipment { margin-top: 12px; padding-block: 8px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.edit-equipment summary { color: var(--accent); cursor: pointer; font-size: 11px; font-weight: 650; }
+.inspector-input, .geometry-fields { display: grid; gap: 4px; margin: 8px 0 0; color: var(--muted); font-size: 11px; }
+.inspector-input input, .geometry-fields input {
+  width: 100%; padding: 5px; border: 1px solid #cbd9e0; border-radius: 4px; color: #172a39; background: #fff;
+}
+.geometry-fields { min-width: 0; padding: 0; border: 0; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.geometry-fields label { display: grid; gap: 2px; }
 .scene-panel { display: flex; flex-direction: column; }
 .viewport { position: relative; flex: 1; min-height: 407px; background: #eaf0f3; }
 .viewport > div:first-child { position: absolute !important; inset: 0; }
@@ -112,6 +123,7 @@ h4 { margin: 16px 0 4px; font-size: 11px; }
   gap: 8px 20px; align-items: center;
 }
 .scenario-form { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; gap: 6px 8px; align-items: end; }
+.editable-scenario { grid-template-columns: repeat(3, minmax(0, 1fr)) auto; }
 .scenario-form label { color: var(--muted); font-weight: 640; font-size: 11px; }
 .number-input {
   display: flex; align-items: center; gap: 3px; margin-top: 4px; min-height: 36px;
@@ -153,9 +165,13 @@ h4 { margin: 16px 0 4px; font-size: 11px; }
   .scenario-content { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 480px) {
-  .preview-label { display: none; }
+  .top-actions { gap: 6px; }
+  .topbar .button { padding-inline: 7px; }
+  .preview-label { max-width: 66px; line-height: 1.2; font-size: 10px; }
+  .preview-label i { display: none; }
   .workbench { grid-template-columns: minmax(0, 1fr); }
   .viewport { min-height: 270px; }
   .view-help { display: none; }
   .scenario-content { padding-inline: 8px; }
+  .editable-scenario .primary { grid-column: 1 / -1; }
 }

@@ -6,6 +6,7 @@ from pydantic import ValidationError
 from .engineering import ThroughputResult, evaluate
 from .models import Plant
 from .plant_files import DEFAULT_PLANT, PlantError, initialize_plant, load_plant
+from .plant_store import PlantStore
 
 
 def print_summary(plant: Plant) -> None:
@@ -63,10 +64,12 @@ def main() -> None:
             created = initialize_plant(plant_path)
             message = "Initialized plant repository at" if created else "Plant repository already exists at"
             print(f"{message} {plant_path}")
-        elif args.command == "validate":
-            print_summary(load_plant(plant_path))
         else:
-            plant = load_plant(plant_path)
+            plant = (PlantStore(plant_path).read().plant if (plant_path / ".git").is_dir()
+                     else load_plant(plant_path))
+            if args.command == "validate":
+                print_summary(plant)
+                return
             if args.feed is not None or args.crusher_capacity is not None:
                 draft = plant.model_dump(by_alias=True)
                 if args.feed is not None:

@@ -54,20 +54,32 @@ export interface Throughput {
 export interface PlantView {
   plant: Plant
   result: Throughput
+  revision?: string | null
+  git_dirty?: boolean | null
 }
 
-export interface Draft {
+export interface ScenarioDraft {
   requested_feed_tph: number
   equipment_capacities_tph: Record<string, number>
 }
 
-export async function requestPlant(draft?: Draft, signal?: AbortSignal): Promise<PlantView> {
-  const response = await fetch(draft ? '/api/plant/simulate' : '/api/plant', {
+export interface DesignDraft {
+  requirements: Plant['requirements']
+  equipment: Record<string, Omit<Equipment['geometry'], 'model_key'> & {
+    specifications: Equipment['specifications']
+  }>
+}
+
+export async function requestPlant(
+  draft?: DesignDraft | ScenarioDraft, signal?: AbortSignal, expectedRevision?: string,
+): Promise<PlantView> {
+  const response = await fetch(draft && !expectedRevision ? '/api/plant/simulate' : '/api/plant', {
     signal,
+    cache: 'no-store',
     ...(draft && {
-      method: 'POST',
+      method: expectedRevision ? 'PUT' : 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(draft),
+      body: JSON.stringify(expectedRevision ? { ...draft, expected_revision: expectedRevision } : draft),
     }),
   })
   if (!response.ok) {

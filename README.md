@@ -1,6 +1,6 @@
 # Plant-as-Code
 
-Plant-as-Code represents a miniature aggregate recycling plant as versioned YAML. The current milestone provides a sample plant, command-line validation and throughput evaluation, and a separate local Git repository for editing the design. The 3D workspace is planned.
+Plant-as-Code represents a miniature aggregate recycling plant as versioned YAML. The local 3D workspace lets you inspect equipment and preview throughput scenarios. The command-line tools validate the plant, evaluate throughput, and initialize a separate Git repository for the design.
 
 The sample design starts at **11 t/h requested feed** with a **60% fine fraction**. Equipment ratings are invented for the demonstration. The process models dry solids, treats the washer as a pass-through, and uses storage as an output sink.
 
@@ -18,6 +18,24 @@ git -C demo-plant log --oneline
 ```
 
 Validation lists seven equipment items, six material streams, and the crusher’s motor, jaw, and frame. Setup copies the sample YAML into `demo-plant/` and creates an initial commit in that directory’s own Git repository. Rerunning setup preserves local edits. Use `--plant PATH` to work with another local plant directory.
+
+## Open the 3D workspace
+
+Install Node.js 22.12 or newer and use a browser with WebGL 2. Complete the quick start first, then run the API from the project root with the Python environment active.
+
+```sh
+python -m uvicorn app.backend.api:app --host 127.0.0.1 --port 8000
+```
+
+In a second terminal, from the project root:
+
+```sh
+cd app/frontend
+npm ci
+npm run dev
+```
+
+Open [the local workspace](http://127.0.0.1:5173). Select the jaw crusher in the layout or equipment list, then choose its motor, jaw, or frame to inspect that part. Select **+20% feed** to see the crusher overload, then **Try 15 t/h crusher** to evaluate the upgrade. **Reload baseline** returns to the saved YAML. Scenario previews run in memory.
 
 ## Evaluate the crusher upgrade
 
@@ -59,7 +77,8 @@ The validator checks equipment and component references, port direction and mate
 | --- | --- |
 | [`app/baseline/`](app/baseline/) | Sample YAML for equipment, components, streams, and requirements |
 | [`app/backend/`](app/backend/) | Python models, YAML loader, throughput engine, and command-line interface |
-| [`tests/`](tests/) | Validation, local Git setup, and throughput tests |
+| [`app/frontend/`](app/frontend/) | React and Three.js workspace |
+| [`tests/`](tests/) | Validation, local Git setup, throughput, and API tests |
 
 ## Tests
 
@@ -67,3 +86,5 @@ The validator checks equipment and component references, port direction and mate
 python -m pip install -r requirements-dev.txt
 python -m pytest
 ```
+
+Run `npm run build` in `app/frontend/` to type-check and build the workspace.

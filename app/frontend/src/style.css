@@ -41,6 +41,8 @@ ul { padding: 0; list-style: none; }
 .save-button { color: #123244; background: #bce3f0; }
 .save-button:hover { background: #d7f0f8; }
 .save-button:disabled { cursor: default; }
+.history-link { display: inline-flex; align-items: center; text-decoration: none; }
+.history-link:focus-visible { outline: 2px solid #8bd1ee; outline-offset: 3px; }
 .primary { background: #205770; color: white; }
 .primary:hover { background: #163e51; }
 main { max-width: 1600px; margin: auto; padding: 23px clamp(16px, 3vw, 48px) 28px; }
@@ -154,6 +156,41 @@ h4 { margin: 16px 0 4px; font-size: 11px; }
 .api-error { margin-bottom: 12px; overflow-wrap: anywhere; }
 .loading { min-height: 420px; display: grid; align-content: center; justify-items: start; gap: 10px; }
 .loading p { overflow-wrap: anywhere; }
+.history-panel { margin-top: 12px; scroll-margin-top: 12px; }
+.repository-status { display: flex; flex-wrap: wrap; gap: 9px; align-items: center; justify-content: end; }
+.repository-status code, .branch-name { color: var(--muted); font-size: 11px; }
+.branch-name { max-width: 180px; overflow-wrap: anywhere; }
+.history-body { padding: 12px 14px; }
+.history-layout { display: grid; grid-template-columns: minmax(180px, 1fr) minmax(0, 2.3fr); gap: 16px; }
+.commit-list { max-height: 280px; overflow: auto; padding: 2px; }
+.commit-item {
+  display: grid; gap: 4px; width: 100%; text-align: left; padding: 8px;
+  border: 1px solid transparent; border-radius: 5px; background: #f3f7f9; color: #1a2b37;
+}
+.commit-list li + li { margin-top: 4px; }
+.commit-item:hover, .commit-item.selected { background: #e7f1f5; border-color: #c1dae6; }
+.commit-item strong { font-size: 12px; overflow-wrap: anywhere; }
+.commit-item span { color: var(--muted); font-size: 10px; }
+.comparison { min-width: 0; }
+.comparison-heading { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 6px; margin-bottom: 8px; }
+.comparison-heading h3 { margin: 0; font-size: 13px; }
+.comparison-heading label, .commit-form label { color: var(--muted); font-size: 11px; }
+.comparison-heading select, .commit-form input {
+  min-height: 32px; border: 1px solid #cbd9e0; border-radius: 5px; padding: 4px 7px;
+  background: #fff; color: #1a2b37; font: inherit;
+}
+.field-diff { width: 100%; border-collapse: collapse; font-size: 12px; table-layout: fixed; }
+.field-diff :is(th, td) { padding: 7px; text-align: left; overflow-wrap: anywhere; border-bottom: 1px solid var(--line); }
+.field-diff thead { background: #f3f7f9; color: var(--muted); }
+.field-diff thead th:first-child { width: 38%; }
+.field-diff tbody th { font-weight: 600; }
+.light-button { background: #f1f6f8; color: #215771; border-color: #c9dce6; }
+.light-button:hover { background: #e5f1f5; }
+.restore-button { margin-top: 8px; }
+.commit-form { display: flex; flex-wrap: wrap; align-items: end; gap: 8px; margin-top: 12px; }
+.commit-form label { display: grid; gap: 4px; flex: 1 1 200px; max-width: 420px; }
+.commit-form input { width: 100%; min-height: 36px; font-size: 12px; }
+.history-note { margin-top: 6px; font-size: 12px; }
 @media (max-width: 1100px) {
   .workbench { grid-template-columns: 174px minmax(0, 1fr) 202px; gap: 8px; }
   .inspector-content { padding-inline: 10px; }
@@ -174,4 +211,7 @@ h4 { margin: 16px 0 4px; font-size: 11px; }
   .view-help { display: none; }
   .scenario-content { padding-inline: 8px; }
   .editable-scenario .primary { grid-column: 1 / -1; }
+  .history-link { display: none; }
+  .history-layout { grid-template-columns: minmax(0, 1fr); }
+  .commit-list { max-height: 160px; }
 }

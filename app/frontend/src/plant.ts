@@ -73,7 +73,7 @@ export interface DesignDraft {
 export async function requestPlant(
   draft?: DesignDraft | ScenarioDraft, signal?: AbortSignal, expectedRevision?: string,
 ): Promise<PlantView> {
-  const response = await fetch(draft && !expectedRevision ? '/api/plant/simulate' : '/api/plant', {
+  return requestJson(draft && !expectedRevision ? '/api/plant/simulate' : '/api/plant', {
     signal,
     cache: 'no-store',
     ...(draft && {
@@ -82,6 +82,10 @@ export async function requestPlant(
       body: JSON.stringify(expectedRevision ? { ...draft, expected_revision: expectedRevision } : draft),
     }),
   })
+}
+
+export async function requestJson<T>(path: string, options?: RequestInit): Promise<T> {
+  const response = await fetch(path, { cache: 'no-store', ...options })
   if (!response.ok) {
     const failure = await response.json().catch(() => null)
     const detail = failure?.detail

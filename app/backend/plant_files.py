@@ -65,15 +65,20 @@ def load_plant(root: Path) -> Plant:
     return parse_plant(root, plant_documents(root))
 
 
-def git(root: Path, *args: str) -> str:
+def git_bytes(root: Path, *args: str) -> bytes:
     try:
         result = subprocess.run(["git", "-C", str(root), *args], check=True,
-                                capture_output=True, text=True)
+                                capture_output=True)
     except subprocess.CalledProcessError as error:
-        raise PlantError(f"Git {args[0]} failed in {root}: {error.stderr.strip()}") from error
+        stderr = error.stderr.decode("utf-8", errors="replace").strip()
+        raise PlantError(f"Git {args[0]} failed in {root}: {stderr}") from error
     except OSError as error:
         raise PlantError(f"Could not run Git: {error}") from error
-    return result.stdout.strip()
+    return result.stdout
+
+
+def git(root: Path, *args: str) -> str:
+    return git_bytes(root, *args).decode("utf-8", errors="replace").strip()
 
 
 def initialize_plant(destination: Path) -> bool:

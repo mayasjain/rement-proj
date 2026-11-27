@@ -1,12 +1,13 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import { PlantScene } from './PlantScene'
+import { VersionControl, type GitAction } from './VersionControl'
 import { axes, geometryFields, inputsFromPlant, makeDesign, type Inputs } from './draft'
-import { number, requestPlant, type PlantView } from './plant'
+import { number, requestJson, requestPlant, type PlantView } from './plant'
 
-type Action = 'load' | 'evaluate' | 'save'
+type Action = 'load' | 'evaluate' | 'save' | 'git'
 
-function Header({ onReload, onSave, busy, state, canSave }: {
-  onReload?: () => void; onSave?: () => void; busy: boolean; state?: string; canSave?: boolean
+function Header({ onReload, onSave, busy, state, canSave, hasHistory }: {
+  onReload?: () => void; onSave?: () => void; busy: boolean; state?: string; canSave?: boolean; hasHistory?: boolean
 }) {
   return <header className="topbar">
     <div className="brand"><div className="brand-mark" aria-hidden="true"><i /><i /><i /></div>
@@ -14,6 +15,7 @@ function Header({ onReload, onSave, busy, state, canSave }: {
     </div>
     {onReload && <div className="top-actions">
       <span className="preview-label" role="status"><i /> {state ?? 'Read-only preview'}</span>
+      {hasHistory && <a className="button secondary history-link" href="#plant-history">History</a>}
       <button className="button secondary" disabled={busy} onClick={onReload}>{onSave ? 'Reload' : 'Reload baseline'}</button>
       {onSave && <button className="button save-button" disabled={busy || !canSave} onClick={onSave}>Save</button>}
     </div>}
@@ -158,6 +160,7 @@ export function Workspace() {
   const [action, setAction] = useState<Action | null>('load')
   const [error, setError] = useState('')
   const [inputs, setInputs] = useState<Inputs>({})
+  const [gitRefresh, refreshGit] = useState(0)
   const busy = action !== null
   const dirty = !!baseline && JSON.stringify(inputs) !== JSON.stringify(inputsFromPlant(baseline.plant))
 
@@ -165,16 +168,21 @@ export function Workspace() {
     setInputs(previous => ({ ...previous, [key]: value }))
   }
 
+  function adopt(next: PlantView) {
+    setBaseline(next)
+    setView(next)
+    setInputs(inputsFromPlant(next.plant))
+    select(previous => next.plant.equipment.some(item => item.id === previous || item.component_ids.includes(previous))
+      ? previous : next.plant.equipment.find(item => item.type === 'crusher')!.id)
+    refreshGit(value => value + 1)
+  }
+
   async function load(signal?: AbortSignal) {
     setAction('load')
     setError('')
     try {
       const next = await requestPlant(undefined, signal)
-      setBaseline(next)
-      setView(next)
-      setInputs(inputsFromPlant(next.plant))
-      select(previous => next.plant.equipment.some(item => item.id === previous || item.component_ids.includes(previous))
-        ? previous : next.plant.equipment.find(item => item.type === 'crusher')!.id)
+      adopt(next)
     } catch (failure) {
       if (!signal?.aborted) setError(failure instanceof Error ? failure.message : 'Could not load the plant.')
     } finally {
@@ -209,11 +217,33 @@ export function Workspace() {
       }
       const next = await requestPlant(baseline.revision ? draft : legacy, undefined,
         kind === 'save' ? baseline.revision ?? undefined : undefined)
-      if (kind === 'save') setBaseline(next)
-      setView(next)
-      setInputs(inputsFromPlant(next.plant))
+      if (kind === 'save') adopt(next)
+      else {
+        setView(next)
+        setInputs(inputsFromPlant(next.plant))
+      }
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : 'The plant action failed.')
+    } finally {
+      setAction(null)
+    }
+  }
+
+  async function updateHistory(head: string, operation: GitAction): Promise<string> {
+    if (!baseline?.revision || dirty || busy) return 'Save or discard the draft before changing history.'
+    setAction('git')
+    setError('')
+    try {
+      const fields = operation.kind === 'commit' ? { message: operation.message } : { commit: operation.commit }
+      const next = await requestJson<PlantView>(`/api/plant/git/${operation.kind}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...fields, expected_head: head, expected_revision: baseline.revision }),
+      })
+      adopt(next)
+      return ''
+    } catch (failure) {
+      return failure instanceof Error ? failure.message : 'Could not update the plant history.'
     } finally {
       setAction(null)
     }
@@ -229,6 +259,7 @@ export function Workspace() {
   </>
 
   const { plant, result } = view
+  const hasHistory = typeof baseline.git_dirty === 'boolean'
   const overloaded = new Set(result.findings.filter(finding => finding.rule_id === 'equipment_overload')
     .flatMap(finding => finding.equipment_ids))
   const components = new Map(plant.components.map(item => [item.id, item]))
@@ -237,7 +268,7 @@ export function Workspace() {
   const equipment = new Map(plant.equipment.map(item => [item.id, item]))
 
   return <>
-    <Header busy={busy} canSave={dirty}
+    <Header busy={busy} canSave={dirty} hasHistory={hasHistory}
       state={baseline.revision ? action === 'save' ? 'Saving…' : dirty ? 'Unsaved draft' :
         baseline.git_dirty ? 'Saved to YAML · Git changes' : 'Saved to YAML' : undefined}
       onSave={baseline.revision ? () => void submit(inputs, 'save') : undefined}
@@ -280,6 +311,7 @@ export function Workspace() {
       </div>
       <Scenario baseline={baseline} view={view} inputs={inputs} onChange={change}
         onSimulate={values => void submit(values, 'evaluate')} action={action} />
+      {hasHistory && <VersionControl refresh={gitRefresh} busy={busy} dirty={dirty} onAction={updateHistory} />}
     </main>
   </>
 }

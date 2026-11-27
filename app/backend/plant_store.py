@@ -62,7 +62,7 @@ class PlantStore:
     def __init__(self, root: Path):
         self.root = root.resolve()
         metadata = self.root / ".git"
-        self.git_repo = metadata.is_dir()
+        self.git_repo = metadata.is_dir() and not metadata.is_symlink()
         directory = metadata if self.git_repo else self.root.parent
         name = "plant-save" if self.git_repo else f".{self.root.name}.plant-save"
         self.lock = directory / f"{name}.lock"

@@ -1,33 +1,56 @@
 # Plant-as-Code
 
-Plant-as-Code represents a miniature aggregate recycling plant as versioned YAML. The local 3D workspace lets you inspect equipment, evaluate throughput scenarios, and use Git to compare, commit, and restore designs. The command-line tools validate the plant, evaluate throughput, and initialize a separate Git repository for the design.
+**A 3D workspace for designing, testing, and versioning industrial plant layouts.**
 
-The sample design starts at **11 t/h requested feed** with a **60% fine fraction**. Equipment ratings are invented for the demonstration. The process models dry solids, treats the washer as a pass-through, and uses storage as an output sink.
+Plant-as-Code models a small aggregate recycling line. You can inspect equipment in 3D, change the production target, and see which machine limits output. The same YAML files drive the layout and the throughput calculations, so each design can be reviewed in Git down to the field that changed.
 
-## Quick start
+**[Open the live demo](https://plant-as-code-demo.mayasjain646.workers.dev/)** · [View published Git history](https://plant-as-code-demo.mayasjain646.workers.dev/#plant-history) · [Run locally](#run-locally)
 
-Install Python 3.11 or newer and Git 2.28 or newer. From the repository root, run these commands on macOS or Linux.
+![Plant-as-Code workspace showing the connected recycling line, the selected jaw crusher at 110% required utilization, and the achievable 12 t/h feed against a 13.2 t/h request](docs/images/plant-as-code-workspace.png)
+
+*The crusher is highlighted because the requested 13.2 t/h exceeds its 12 t/h rating.*
+
+## Try the demo
+
+1. Select the **Jaw crusher** in the equipment list or 3D scene. Choose **Explode assembly** to inspect the motor, jaw, and frame.
+2. Select **+20% feed**. Raising the target from **11 to 13.2 t/h** pushes the crusher to **110% required utilization**. The line can deliver **12 t/h**.
+3. Select **Try 15 t/h crusher**. The plant can now meet the target. The material animation follows the achievable flow, and **Pause flow** freezes it for inspection.
+4. Open **History** and select **Demo crusher upgrade** to compare the rehearsal commit with the published baseline. Choose **Reload baseline** to reset the public preview.
+
+| Scenario | Requested feed | Achievable feed | Sand | Gravel |
+| --- | ---: | ---: | ---: | ---: |
+| Original design | 11 t/h | 11 t/h | 6.60 t/h | 4.40 t/h |
+| Higher target, original crusher | 13.2 t/h | 12 t/h | 7.20 t/h | 4.80 t/h |
+| Higher target, 15 t/h crusher | 13.2 t/h | 13.2 t/h | 7.92 t/h | 5.28 t/h |
+
+The public site supports scenario previews and displays three real Git commits from the rehearsal. Use the local workspace to save YAML, create commits, and restore designs.
+
+## How it works
+
+The hopper feeds a jaw crusher, and a vibrating screen splits its output. The fine fraction passes through a sand washer to sand storage. The coarse fraction travels by conveyor to gravel storage.
+
+- **Plant definition.** YAML holds equipment IDs, dimensions, rated capacities, typed material ports, and stream connections. The sample uses seven pieces of equipment and six material streams.
+- **Throughput calculation.** The Python engine checks how much feed each machine and branch can handle. It reports required and achievable flow, equipment utilization, and mass balance. The browser and command-line tools use the same engine.
+- **3D workspace.** React and Three.js render industrial GLB assemblies at their YAML dimensions. The scene shows connected conveyors, steel supports, and flow markers. The inspector links each selectable model or component back to its definition.
+- **Version history.** The local FastAPI service reads and writes the plant files in a separate Git repository under `demo-plant/`. History shows field-level comparisons. Restoring a snapshot writes a new commit and preserves the earlier versions.
+
+The sample uses invented equipment ratings, steady-state dry-solids flow, a pass-through washer, and a **60% fine fraction**. Storage acts as an output sink. The 3D layout and animation illustrate the engineering model. They do not establish belt speeds, collision clearances, energy consumption, or fabrication dimensions.
+
+## Run locally
+
+You’ll need **Python 3.11+**, **Git 2.28+**, **Node.js 22.12+**, and a **WebGL 2** browser. These commands are for macOS or Linux.
+
+**Terminal 1** · Set up the demo plant and run the API from the repository root.
 
 ```sh
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install -r requirements.txt
 python -m app.backend init
-python -m app.backend validate
-git -C demo-plant log --oneline
-```
-
-Validation lists seven equipment items, six material streams, and the crusher’s motor, jaw, and frame. Setup copies the sample YAML into `demo-plant/` and creates an initial commit in that directory’s own Git repository. Rerunning setup preserves local edits. Use `--plant PATH` to work with another local plant directory.
-
-## Open the 3D workspace
-
-Install Node.js 22.12 or newer and use a browser with WebGL 2. Complete the quick start first, then run the API from the project root with the Python environment active.
-
-```sh
 python -m uvicorn app.backend.api:app --host 127.0.0.1 --port 8000
 ```
 
-In a second terminal, from the project root:
+**Terminal 2** · Start the browser workspace from the repository root.
 
 ```sh
 cd app/frontend
@@ -35,35 +58,47 @@ npm ci
 npm run dev
 ```
 
-Open [the local workspace](http://127.0.0.1:5173). Select the jaw crusher in the layout or equipment list, then choose its motor, jaw, or frame to inspect that part. Select **+20% feed** to see the crusher overload, then **Try 15 t/h crusher** to evaluate the upgrade. Scenario previews run in memory.
+Open [http://127.0.0.1:5173](http://127.0.0.1:5173). Initialization copies the sample YAML and seeds its Git history. You can rerun it without losing existing plant work.
 
-The 3D view uses industrial GLB assemblies fitted to the plant dimensions in YAML. **Explode assembly** isolates the selected machine and spreads its component models for inspection. Click a component or its label to open the existing inspector. **Pause flow** freezes the material markers. Their density and movement reflect achievable flow in the evaluated scenario. Display speed, stockpile shape, and belt construction details are illustrative. Asset sources and regeneration commands are documented in [Industrial asset authoring](app/frontend/tools/README.md).
+### Save, commit, and reset
 
-### Edit, save, and reload locally
+1. Edit the feed and fine fraction under **Production scenario**. For equipment changes, select a machine and open **Edit specifications and geometry**.
+2. Select **Evaluate** to preview the draft and **Save** to write it to YAML. If the files changed on disk, the app keeps the draft open and asks you to reload before saving again. If a save is interrupted, the next load rolls back partial writes.
+3. Open **History**, compare the current commit with **Saved YAML**, enter a message, and choose **Commit saved changes**.
+4. To repeat the demo, select **Seed aggregate recycling baseline** and choose **Restore snapshot**. The workspace returns to the original design after creating a restore commit. Resolve staged or uncommitted files and save or discard any draft before restoring.
 
-- Edit the requested feed and fine fraction in **Production scenario**. To change an equipment rating, power, or geometry, select the equipment and open **Edit specifications and geometry** in the inspector.
-- **Evaluate** previews the entire draft. **Save** validates and writes the draft to YAML. A capacity shortfall stays visible as an engineering finding and can be saved for comparison. After saving, **Saved to YAML · Git changes** indicates work awaiting a commit.
-- **Reload** reads the current YAML from disk. If a file changed externally, the save is rejected and your draft stays open. Copy any values you want to keep before confirming a reload. If YAML is malformed, the workspace names the affected file and keeps the last loaded design visible.
+## Project files
 
-The saver checks a revision derived from the plant YAML and updates only changed files. Changed YAML files are reserialized. If a save is interrupted, the next local load uses a recovery journal to roll back its partial writes.
+| Path | Contents |
+| --- | --- |
+| [app/baseline/](app/baseline/) | Sample plant definitions, components, streams, and requirements |
+| [app/backend/](app/backend/) | Validation, throughput engine, command-line tools, and local Git API |
+| [app/frontend/](app/frontend/) | 3D workspace, inspector, scenario controls, and history panel |
+| [tests/](tests/) | Plant validation, throughput, API, and Git workflow tests |
 
-### Rehearse the demo and restore the baseline
+For manual YAML edits, keep equipment and component IDs stable and update any affected stream endpoints. Run `python -m app.backend validate` to check the design, then choose **Reload** in the workspace. Model provenance, asset generation, and browser performance measurements are in [Industrial asset authoring](app/frontend/tools/README.md).
 
-1. Open the **11 t/h** baseline. Select the jaw crusher and inspect its motor, jaw assembly, and frame.
-2. Select **+20% feed**. The 13.2 t/h request exceeds the crusher’s 12 t/h capacity. The crusher turns red and the scenario reports **110% utilization** in the inspector.
-3. Select **Try 15 t/h crusher** and confirm the full 13.2 t/h is now achievable. Select **Save** to write the draft to YAML.
-4. Open **History**. Compare the current commit with **Saved YAML** to see the feed and crusher rating changes. Enter a message and select **Commit saved changes**. You can also select an earlier commit and compare it with **Current commit**.
-5. Select **Seed aggregate recycling baseline**, then **Restore snapshot**. Confirm the new restore commit and verify the original **12 t/h** crusher rating and outputs of **6.6 t/h sand** and **4.4 t/h gravel**. Both the upgrade and restoration remain in history.
+<details>
+<summary>CLI checks and tests</summary>
 
-Use the same seed snapshot to reset subsequent rehearsals. Restore requires a clean Git working tree and a workspace without draft edits. To clear a draft before reset, save and commit it or choose **Reload** and confirm the discard. Resolve manually staged Git work in the terminal before using the workspace commit form.
+From the repository root with the Python environment active:
 
-## Deploy the demo to Cloudflare
+```sh
+python -m app.backend evaluate --plant app/baseline --feed 13.2
+python -m app.backend evaluate --plant app/baseline --feed 13.2 --crusher-capacity 15
 
-The Cloudflare Worker serves a preview-only workspace and runs the same Python simulation engine against the bundled sample plant. It uses the checked-in fixture in `app/baseline/` for every request.
+python -m pip install -r requirements-dev.txt
+python -m pytest
+npm --prefix app/frontend run build
+node --experimental-strip-types --test app/frontend/tools/visual-factory.test.mjs
+```
 
-To publish the **History** panel, pass `--history-repo /path/to/rehearsal-plant` to the staging command. Use a dedicated rehearsal repository with a clean working tree and the sample baseline restored. The deployment includes commit messages, hashes, dates, and field diffs from that repository as a read-only export. Visitors can compare published designs and run scenario previews. Saving, committing, and restoring are available in the local workspace.
+</details>
 
-From the project root, with the Python environment active, frontend dependencies installed, and `uv` and an authenticated Wrangler session available:
+<details>
+<summary>Cloudflare deployment</summary>
+
+With the Python environment active, frontend dependencies installed, and `uv` and an authenticated Wrangler session available:
 
 ```sh
 npm --prefix app/frontend run build
@@ -72,60 +107,6 @@ python -m deploy.cloudflare.stage "$stage_dir"
 (cd "$stage_dir" && uv run --python 3.14 pywrangler deploy)
 ```
 
-## Evaluate the crusher upgrade
+To include **History**, pass `--history-repo /path/to/rehearsal-plant` to the staging command. Use a dedicated rehearsal repository with a clean working tree and the sample baseline restored. The deployed demo then shows commit hashes, messages, dates, and field comparisons from that repository.
 
-Run both previews against the same baseline fixture. The requested feed stays at 13.2 t/h and the fine fraction stays at 60%. The upgrade changes only the crusher rating. Both previews are read-only.
-
-```sh
-python -m app.backend evaluate --plant app/baseline --feed 13.2
-python -m app.backend evaluate --plant app/baseline --feed 13.2 --crusher-capacity 15
-```
-
-| Observed result | Original crusher | Upgraded crusher |
-| --- | ---: | ---: |
-| Crusher rating | 12 t/h | 15 t/h |
-| Required crusher utilization | 110% | 88% |
-| Achievable feed | 12 t/h | 13.2 t/h |
-| Sand output | 7.2 t/h | 7.92 t/h |
-| Gravel output | 4.8 t/h | 5.28 t/h |
-| Mass balance residual | 0 t/h | 0 t/h |
-
-The upgrade meets the target with no overload. At higher feed rates, the washer becomes the first constraint at about 13.33 t/h. Run `python -m app.backend evaluate` to evaluate the current YAML in `demo-plant/`. The CLI reports overloads as findings within a completed evaluation.
-
-## Sample plant
-
-```mermaid
-flowchart LR
-    Hopper["Feed hopper"] --> Crusher["Jaw crusher"]
-    Crusher --> Screen["Vibrating screen"]
-    Screen -->|Fine fraction| Washer["Sand washer"]
-    Screen -->|Coarse fraction| Conveyor["Gravel conveyor"]
-    Washer --> Sand["Sand storage"]
-    Conveyor --> Gravel["Gravel storage"]
-```
-
-The validator checks equipment and component references, port direction and material compatibility, specification bounds, and the process layout shown above. Scene coordinates use meters with Y up. Component positions are relative to their parent equipment.
-
-## Architecture and equipment authoring
-
-The React and Three.js workspace uses a localhost FastAPI service. The service validates plant YAML and calls the same Python throughput engine as the CLI. The demo’s Git repository stores the plant files and their history under `demo-plant/`. The throughput engine can run directly on a validated model.
-
-To author a replacement, edit the relevant YAML under `demo-plant/equipment/`. Give each item a stable ID, rated specifications, typed ports, and geometry. Reference component records from the equipment’s `component_ids`, and update stream endpoints in `connections.yaml` if equipment or port IDs change. Keep one hopper, crusher, screen, washer, and conveyor, plus two storage sinks connected as shown above. Run `python -m app.backend validate`, then use **Reload** to inspect the result. The demo uses steady-state flow and equipment ratings to estimate capacity. It does not calculate collision clearance or energy consumption.
-
-## Repository layout
-
-| Path | Contents |
-| --- | --- |
-| [`app/baseline/`](app/baseline/) | Sample YAML for equipment, components, streams, and requirements |
-| [`app/backend/`](app/backend/) | Python models, YAML loader, throughput engine, local API, and Git integration |
-| [`app/frontend/`](app/frontend/) | React and Three.js workspace |
-| [`tests/`](tests/) | Validation, throughput, API, and Git workflow tests |
-
-## Tests
-
-```sh
-python -m pip install -r requirements-dev.txt
-python -m pytest
-```
-
-Run `npm run build` in `app/frontend/` to type-check and build the workspace. Run `node --experimental-strip-types --test app/frontend/tools/visual-factory.test.mjs` from the repository root to check model coverage, transfer attachment coordinates, and the asset size budget.
+</details>
